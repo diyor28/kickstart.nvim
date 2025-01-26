@@ -172,6 +172,14 @@ require('lazy').setup({
       },
     },
   },
+  {
+    'github/copilot.vim',
+    event = 'InsertEnter',
+    cmd = 'Copilot',
+    config = function()
+      vim.api.nvim_set_keymap('i', '<C-e>', 'copilot#Accept("<CR>")', { noremap = true, silent = true, expr = true })
+    end,
+  },
 
   -- NOTE: Plugins can also be configured to run Lua code when they are loaded.
   --

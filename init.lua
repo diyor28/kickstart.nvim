@@ -190,13 +190,27 @@ require('lazy').setup({
         },
         view = {
           adaptive_size = true,
+          -- Show hidden files (dotfiles)
+          hide_dotfiles = false, -- Changed from 'true' if it was there, or ensure this is the setting
         },
         renderer = {
           group_empty = true,
         },
+        -- To show hidden files, ensure `dotfiles` is false or the `custom` filter doesn't hide them.
+        -- The `hide_dotfiles` option under `view` is often the direct way.
+        -- If `filters.dotfiles` was true, change it to false.
         filters = {
-          dotfiles = true,
+          dotfiles = false, -- <<<<<<<<<<<< MODIFIED
+          custom = {}, -- You can add custom filters here if needed, e.g. { ".git" }
         },
+        -- You might also need to ensure that gitignored files are shown if you want them
+        -- git = {
+        --   ignore = false,
+        -- },
+        -- update_focused_file = {
+        --   enable = true,
+        --   update_root = true,
+        -- },
       }
     end,
   },
@@ -348,6 +362,12 @@ require('lazy').setup({
               ['dd'] = actions.delete_buffer,
             },
           },
+          -- Add this to default find_files options to include hidden files
+          find_files = {
+            hidden = true,
+            no_ignore = false, -- respect .gitignore
+            no_ignore_parent = false, -- respect .gitignore in parent directories
+          },
         },
         -- pickers = {}
         extensions = {
@@ -365,13 +385,21 @@ require('lazy').setup({
       local builtin = require 'telescope.builtin'
       vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
       vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
-      vim.keymap.set('n', '<leader>sf', builtin.find_files, { desc = '[S]earch [F]iles' })
+      -- Modify the find_files keymap to include hidden files
+      vim.keymap.set('n', '<leader>sf', function()
+        builtin.find_files { hidden = true } -- <<<<<<<<<<<< MODIFIED
+      end, { desc = '[S]earch [F]iles (including hidden)' })
       vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
       vim.keymap.set('n', '<leader>sw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
-      vim.keymap.set('n', '<leader>sg', builtin.live_grep, { desc = '[S]earch by [G]rep' })
+      -- Modify live_grep to also search hidden files if desired
+      vim.keymap.set('n', '<leader>sg', function()
+        builtin.live_grep { additional_args = { '--hidden' } } -- For ripgrep, add --hidden
+      end, { desc = '[S]earch by [G]rep (including hidden)' })
       vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
       vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
-      vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
+      vim.keymap.set('n', '<leader>s.', function()
+        builtin.oldfiles { show_hidden = true } -- <<<<<<<<<<<< MODIFIED (if you want recent hidden files)
+      end, { desc = '[S]earch Recent Files ("." for repeat)' })
       vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = '[ ] Find existing buffers' })
 
       -- Slightly advanced example of overriding default behavior and theme
@@ -389,13 +417,14 @@ require('lazy').setup({
         builtin.live_grep {
           grep_open_files = true,
           prompt_title = 'Live Grep in Open Files',
+          additional_args = { '--hidden' }, -- For ripgrep, add --hidden
         }
-      end, { desc = '[S]earch [/] in Open Files' })
+      end, { desc = '[S]earch [/] in Open Files (including hidden)' })
 
       -- Shortcut for searching your Neovim configuration files
       vim.keymap.set('n', '<leader>sn', function()
-        builtin.find_files { cwd = vim.fn.stdpath 'config' }
-      end, { desc = '[S]earch [N]eovim files' })
+        builtin.find_files { cwd = vim.fn.stdpath 'config', hidden = true } -- <<<<<<<<<<<< MODIFIED
+      end, { desc = '[S]earch [N]eovim files (including hidden)' })
     end,
   },
 

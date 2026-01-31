@@ -102,12 +102,12 @@ vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' }
 
 -- Keybinds to make split navigation easier.
 --  Use CTRL+<hjkl> to switch between windows
---
+--  NOTE: These will be overridden by vim-tmux-navigator for seamless tmux integration
 --  See `:help wincmd` for a list of all window commands
-vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left window' })
-vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
-vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
-vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
+-- vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left window' })
+-- vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
+-- vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
+-- vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
 
 vim.keymap.set('n', '<leader>e', function()
   require('nvim-tree.api').tree.toggle { find_file = true, focus = true }
@@ -143,6 +143,12 @@ vim.opt.rtp:prepend(lazypath)
 require('lazy').setup({
   'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically
 
+  -- Seamless navigation between tmux panes and vim splits
+  {
+    'christoomey/vim-tmux-navigator',
+    lazy = false,
+  },
+
   { -- Adds git related signs to the gutter, as well as utilities for managing changes
     'lewis6991/gitsigns.nvim',
     opts = {
@@ -173,10 +179,36 @@ require('lazy').setup({
         },
         filters = {
           dotfiles = false, -- Show dotfiles
-          custom = { '^\\.git$', '^node_modules$' }, -- Hide .git and node_modules
+          git_ignored = false, -- Show git ignored files
+          custom = { '^node_modules$' }, -- Hide only node_modules
+        },
+        git = {
+          enable = true,
+          ignore = false, -- Don't hide git ignored files
         },
       }
     end,
+  },
+  {
+    'coder/claudecode.nvim',
+    config = true,
+    keys = {
+      { '<leader>a', nil, desc = 'AI/Claude Code' },
+      { '<leader>ac', '<cmd>ClaudeCode<cr>', desc = 'Toggle Claude' },
+      { '<leader>af', '<cmd>ClaudeCodeFocus<cr>', desc = 'Focus Claude' },
+      { '<leader>ar', '<cmd>ClaudeCode --resume<cr>', desc = 'Resume Claude' },
+      { '<leader>aC', '<cmd>ClaudeCode --continue<cr>', desc = 'Continue Claude' },
+      { '<leader>as', '<cmd>ClaudeCodeSend<cr>', mode = 'v', desc = 'Send to Claude' },
+      {
+        '<leader>as',
+        '<cmd>ClaudeCodeTreeAdd<cr>',
+        desc = 'Add file',
+        ft = { 'NvimTree', 'neo-tree', 'oil' },
+      },
+      -- Diff management
+      { '<leader>aa', '<cmd>ClaudeCodeDiffAccept<cr>', desc = 'Accept diff' },
+      { '<leader>ad', '<cmd>ClaudeCodeDiffDeny<cr>', desc = 'Deny diff' },
+    },
   },
   {
     'github/copilot.vim',
@@ -259,18 +291,15 @@ require('lazy').setup({
             i = { ['<c-d>'] = actions.delete_buffer },
             n = { ['<c-d>'] = actions.delete_buffer, ['dd'] = actions.delete_buffer },
           },
-          find_files = {
-            hidden = true,
-            no_ignore = false,
-            no_ignore_parent = false,
-          },
           file_ignore_patterns = {
             '%.git/',
             'node_modules/',
           },
         },
         pickers = {
-          find_files = {},
+          find_files = {
+            hidden = true,
+          },
         },
         extensions = {
           ['ui-select'] = {
@@ -287,22 +316,21 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
       vim.keymap.set('n', '<leader>sf', function()
         builtin.find_files { hidden = true }
-      end, { desc = '[S]earch [F]iles (hidden, no .git/node_modules)' })
+      end, { desc = '[S]earch [F]iles (including hidden, excluding .git/node_modules)' })
       vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
       vim.keymap.set('n', '<leader>sw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
       vim.keymap.set('n', '<leader>sg', function()
         builtin.live_grep {
-          additional_args = { '--hidden' }, -- rg ignores .git/node_modules by default
+          additional_args = { '--hidden' }, -- Search hidden files, ripgrep excludes .git/node_modules by default
         }
-      end, { desc = '[S]earch by [G]rep (hidden, no .git/node_modules)' })
+      end, { desc = '[S]earch by [G]rep (including hidden, excluding .git/node_modules)' })
       vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
       vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
       vim.keymap.set('n', '<leader>s.', function()
         builtin.oldfiles {
           show_hidden = true,
-          file_ignore_patterns = { '%.git/', 'node_modules/' },
         }
-      end, { desc = '[S]earch Recent Files (hidden, no .git/node_modules)' })
+      end, { desc = '[S]earch Recent Files (including hidden)' })
       vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = '[ ] Find existing buffers' })
       vim.keymap.set('n', '<leader>/', function()
         builtin.current_buffer_fuzzy_find(require('telescope.themes').get_dropdown {
@@ -314,9 +342,9 @@ require('lazy').setup({
         builtin.live_grep {
           grep_open_files = true,
           prompt_title = 'Live Grep in Open Files',
-          additional_args = { '--hidden' }, -- rg ignores .git/node_modules by default
+          additional_args = { '--hidden' }, -- Search hidden files, ripgrep excludes .git/node_modules by default
         }
-      end, { desc = '[S]earch [/] in Open Files (hidden, no .git/node_modules)' })
+      end, { desc = '[S]earch [/] in Open Files (including hidden, excluding .git/node_modules)' })
       vim.keymap.set('n', '<leader>sn', function()
         builtin.find_files { cwd = vim.fn.stdpath 'config', hidden = true }
       end, { desc = '[S]earch [N]eovim files (hidden)' })
